@@ -1,20 +1,17 @@
 # Privacy Policy
 
 **InstaDownload** (package `com.vakarux.instadownload`), published by Vakarux / Orang Studio.
-Last updated: 2026-10-09.
+Last updated: 2026-09-13.
 
 ## What we collect
 
-InstaDownload has no app account, analytics, advertising, crash reporting, or server of its own.
+Nothing. InstaDownload has no accounts, no analytics, no advertising, no crash reporting and no servers of its own.
 
 ## What the app does with data
 
 - The Instagram URL you paste or share is sent directly from your device to Instagram's public servers to fetch the media. It is not sent anywhere else.
 - Downloaded photos and videos are saved to the folder you choose on your device (Downloads/InstaDownload by default).
 - Settings (theme, quality, download folder, haptics) are stored locally on your device only.
-- Login is optional. If you choose it, the app stores Instagram session cookies in Android encrypted storage on your device.
-- Session cookies are sent only to Instagram to fetch private posts and stories visible to your account.
-- Logging out deletes the stored session cookies.
 
 ## Permissions
 
@@ -22,7 +19,6 @@ InstaDownload has no app account, analytics, advertising, crash reporting, or se
 - **Network state**: detect data saver mode to pick a lower quality.
 - **Storage** (Android 9 and below only): save files to your Downloads folder.
 - **Vibrate**: optional haptic feedback.
-- **Notifications**: show completion for quick downloads.
 
 ## Third parties
 

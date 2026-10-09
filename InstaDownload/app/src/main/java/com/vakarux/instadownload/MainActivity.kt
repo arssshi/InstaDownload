@@ -99,16 +99,8 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { _ -> /* permission result handled inline */ }
 
-    private val sessionStore by lazy { SessionStore(this) }
-    private val loggedIn = mutableStateOf(false)
-
-    private val loginLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { loggedIn.value = sessionStore.isLoggedIn }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        loggedIn.value = sessionStore.isLoggedIn
         selectedFolderName.value = appSettings.downloadFolderName
         sharedUrl.value = SharedUrl(handleSharedIntent(intent))
 
@@ -125,12 +117,6 @@ class MainActivity : ComponentActivity() {
                     initialUrl = sharedUrl.value.url,
                     initialUrlKey = sharedUrl.value,
                     useDarkTheme = useDarkTheme,
-                    isLoggedIn = loggedIn.value,
-                    onLoginClick = { loginLauncher.launch(Intent(this, LoginActivity::class.java)) },
-                    onLogoutClick = {
-                        sessionStore.clear()
-                        loggedIn.value = false
-                    },
                     settings = settings,
                     selectedFolderName = selectedFolderName.value,
                     onChooseFolder = { folderPickerLauncher.launch(null) },
@@ -161,9 +147,6 @@ class MainActivity : ComponentActivity() {
         initialUrl: String = "",
         initialUrlKey: Any = initialUrl,
         useDarkTheme: Boolean = isSystemInDarkMode(),
-        isLoggedIn: Boolean = false,
-        onLoginClick: () -> Unit = {},
-        onLogoutClick: () -> Unit = {},
         settings: AppSettings = AppSettings(this),
         selectedFolderName: String = settings.downloadFolderName,
         onChooseFolder: () -> Unit = {},
@@ -206,9 +189,9 @@ class MainActivity : ComponentActivity() {
             }
         )
 
-        LaunchedEffect(url, targetWidth, isLoggedIn) {
+        LaunchedEffect(url, targetWidth) {
             val trimmed = url.trim()
-            if (trimmed.isBlank() || !isValidInstagramUrl(trimmed)) {
+            if (trimmed.isBlank() || !isValidInstagramUrl(trimmed) || isStoryUrl(trimmed)) {
                 media = null
                 return@LaunchedEffect
             }
@@ -221,7 +204,7 @@ class MainActivity : ComponentActivity() {
             downloadComplete = false
             val items = runCatching {
                 withContext(Dispatchers.IO) {
-                    InstagramDownloader.getMediaItems(trimmed, sessionStore.session, targetWidth)
+                    InstagramDownloader.getMediaItems(trimmed, targetWidth)
                 }
             }
             isLoading = false
@@ -237,9 +220,6 @@ class MainActivity : ComponentActivity() {
             SettingsDialog(
                 settings = settings,
                 selectedFolderName = selectedFolderName,
-                isLoggedIn = isLoggedIn,
-                onLoginClick = onLoginClick,
-                onLogoutClick = onLogoutClick,
                 onChooseFolder = onChooseFolder,
                 onThemeChanged = onThemeChanged,
                 onDismiss = {
@@ -409,36 +389,19 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
-                                        stringResource(R.string.story_download_title),
+                                        stringResource(R.string.story_not_supported_title),
                                         style = MaterialTheme.typography.labelLarge.copy(
                                             color = IgOrange,
                                             fontWeight = FontWeight.Bold
                                         )
                                     )
                                     Text(
-                                        stringResource(
-                                            if (isLoggedIn) R.string.story_logged_in_body
-                                            else R.string.story_download_body
-                                        ),
+                                        stringResource(R.string.story_not_supported_body),
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = colorScheme.onSurfaceVariant
                                         ),
                                         modifier = Modifier.padding(top = 4.dp)
                                     )
-                                    if (!isLoggedIn) {
-                                        TextButton(
-                                            onClick = onLoginClick,
-                                            modifier = Modifier.padding(top = 4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = AppIcons.Login,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(stringResource(R.string.login_for_private_button))
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -458,11 +421,7 @@ class MainActivity : ComponentActivity() {
                                             isLoading = true
                                             val fetched = runCatching {
                                                 withContext(Dispatchers.IO) {
-                                                    InstagramDownloader.getMediaItems(
-                                                        trimmed,
-                                                        sessionStore.session,
-                                                        settings.targetWidth()
-                                                    )
+                                                    InstagramDownloader.getMediaItems(trimmed, settings.targetWidth())
                                                 }
                                             }
                                             isLoading = false
@@ -817,9 +776,6 @@ class MainActivity : ComponentActivity() {
     private fun SettingsDialog(
         settings: AppSettings,
         selectedFolderName: String,
-        isLoggedIn: Boolean,
-        onLoginClick: () -> Unit,
-        onLogoutClick: () -> Unit,
         onChooseFolder: () -> Unit,
         onThemeChanged: (AppTheme) -> Unit,
         onDismiss: () -> Unit
@@ -838,25 +794,6 @@ class MainActivity : ComponentActivity() {
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    SettingsHeading(stringResource(R.string.account_heading))
-                    Text(
-                        stringResource(if (isLoggedIn) R.string.status_logged_in else R.string.status_logged_out),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Button(
-                        onClick = {
-                            if (isLoggedIn) onLogoutClick() else onLoginClick()
-                            onDismiss()
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                    ) {
-                        Text(stringResource(if (isLoggedIn) R.string.log_out_button else R.string.log_in_button))
-                    }
-                    Text(
-                        stringResource(R.string.login_required_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
                     SettingsHeading(stringResource(R.string.download_location_heading))
                     Text(selectedFolderName, style = MaterialTheme.typography.bodyLarge)
                     OutlinedButton(
@@ -1083,7 +1020,7 @@ class MainActivity : ComponentActivity() {
 
     private fun isStoryUrl(url: String): Boolean =
         Pattern.compile(
-            "^https?://(www\\.)?(instagram\\.com|instagr\\.am)/stories/[A-Za-z0-9._]+(?:/[0-9]+)?"
+            "^https?://(www\\.)?instagram\\.com/stories/[A-Za-z0-9._]+"
         ).matcher(url).find()
 
     private fun checkPermissions(): Boolean =

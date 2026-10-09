@@ -25,11 +25,5 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 
--keep class com.google.crypto.tink.** { *; }
--keepclassmembers class * extends com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite {
-    <fields>;
-}
--dontwarn com.google.crypto.tink.**
-
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

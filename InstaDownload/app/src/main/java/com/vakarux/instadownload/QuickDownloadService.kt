@@ -78,11 +78,7 @@ class QuickDownloadService : Service() {
 
     private fun download(url: String): Boolean {
         val settings = AppSettings(this)
-        val items = InstagramDownloader.getMediaItems(
-            url,
-            SessionStore(this).session,
-            settings.targetWidth()
-        )
+        val items = InstagramDownloader.getMediaItems(url, settings.targetWidth())
         if (items.isEmpty()) throw Exception(getString(R.string.error_download_failed))
         return items.map { saveToDownloads(it, this, settings) }.any { it }
     }

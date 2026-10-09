@@ -1,8 +1,8 @@
 # InstaDownload
 
-A privacy-friendly Android app for downloading Instagram posts, reels, photos, videos, carousel posts, and stories.
+A privacy-friendly Android app for downloading public Instagram reels, photos, videos, and carousel posts.
 
-**No login, ads, tracking, or third-party download service for public content. Fully open source.**
+**No login, ads, tracking for public content. Fully open source.**
 
 <p align="center">
   <a href="https://f-droid.org/packages/com.vakarux.instadownload">
@@ -33,8 +33,6 @@ A privacy-friendly Android app for downloading Instagram posts, reels, photos, v
 
 - Download Instagram photos, reels, and videos.
 - Download every photo or video from carousel posts.
-- Download public stories without login when Instagram exposes them publicly.
-- Log in optionally for private posts and stories visible to your account.
 - Paste a link and save the media directly to your device.
 - Quick download by sharing to the app without opening it.
 - **No ads**, analytics, or tracking.
@@ -42,6 +40,9 @@ A privacy-friendly Android app for downloading Instagram posts, reels, photos, v
 - **No Instagram login** required for public content.
 - Fully open source under the GPLv3 License.
 - Works on Android 17!
+
+> [!IMPORTANT]
+> The **Stories version, NOT MAIN VERSION** requires you to log in to Instagram (OPTIONAL FOR REELS). Only download it from the official [InstaDownload releases page](https://github.com/Orang-Studio/InstaDownload/releases).
 
 ## Screenshots
 
@@ -66,7 +67,7 @@ Method 1:
 4. Press download (skip if quick share is chosen)
 
 Method 2:
-1. Copy the URL of an Instagram post, reel, video, or story.
+1. Copy the URL of an Instagram post, reel, or video.
 2. Open **InstaDownload**.
 3. Paste the URL.
 4. Tap **Download**.
@@ -84,11 +85,9 @@ InstaDownload supports public links containing:
 - `instagram.com/p/`
 - `instagram.com/reel/`
 - `instagram.com/tv/`
-- `instagram.com/stories/<username>/<story-id>`
+`tv is deprecated link type`
 
-`tv` is a deprecated link type.
-
-Private posts and stories require login from **Settings**. The app keeps session data encrypted on your device.
+The Stories version additionally supports Instagram Stories and private posts your account has permission to view.
 
 </details>
 
@@ -104,7 +103,7 @@ InstaDownload may request the following Android permissions:
 - Notifications - Show download completion alerts
 - Vibration - Provide haptic feedback
 
-Public downloads do not require an Instagram account or login.
+The standard version does not require an Instagram account or login.
 
 </details>
 
