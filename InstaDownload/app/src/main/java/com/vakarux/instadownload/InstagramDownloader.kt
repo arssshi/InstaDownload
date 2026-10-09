@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
+import java.math.BigInteger
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import kotlin.math.abs
@@ -38,6 +39,9 @@ object InstagramDownloader {
     private val SHORTCODE_REGEX = Pattern.compile(
         "(?:instagram\\.com|instagr\\.am)/(?:reel|reels|p|tv)/([A-Za-z0-9_-]+)"
     )
+    private val STORY_REGEX = Pattern.compile(
+        "(?:instagram\\.com|instagr\\.am)/stories/([A-Za-z0-9._]+)/([0-9]+)"
+    )
     private val PROFILE_REGEX = Pattern.compile(
         "^https?://(?:www\\.)?(?:instagram\\.com|instagr\\.am)/([A-Za-z0-9_.]+)/?(?:[?#].*)?$"
     )
@@ -45,6 +49,11 @@ object InstagramDownloader {
         "p", "reel", "reels", "tv", "stories", "explore", "accounts", "direct",
         "about", "developer", "legal", "privacy", "graphql", "web", "download", "emails", "topics"
     )
+
+    private const val SHORTCODE_ALPHABET =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+    private data class StoryRequest(val username: String, val mediaId: String)
 
     private val cookieStore = mutableMapOf<String, MutableList<Cookie>>()
     private val cookieJar = object : CookieJar {
@@ -65,10 +74,31 @@ object InstagramDownloader {
         .cookieJar(cookieJar)
         .build()
 
+    private val DESKTOP_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
     private val MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
             "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 
-    fun getMediaItems(postUrl: String, targetWidth: Int = Int.MAX_VALUE): List<MediaResult> {
+    fun getMediaItems(
+        postUrl: String,
+        session: IgSession? = null,
+        targetWidth: Int = Int.MAX_VALUE
+    ): List<MediaResult> {
+        extractStory(postUrl)?.let { story ->
+            tryPublicStoryPage(story, targetWidth)?.let { return it }
+            if (session == null) {
+                throw UnsupportedOperationException(
+                    "This story is not publicly available. Log in from Settings to download stories visible to your account."
+                )
+            }
+            return tryMediaInfoApi(
+                story.mediaId,
+                session,
+                targetWidth,
+                "https://www.instagram.com/stories/${story.username}/${story.mediaId}/"
+            )
+        }
+
         val shortcode = extractShortcode(postUrl) ?: run {
             extractProfileUsername(postUrl)?.let { username ->
                 return listOf(fetchProfilePicture(username))
@@ -79,11 +109,103 @@ object InstagramDownloader {
         try {
             return tryPostPage(shortcode, targetWidth)
         } catch (postFailure: Exception) {
+            if (session != null) {
+                return try {
+                    tryMediaInfoApi(
+                        shortcodeToMediaId(shortcode),
+                        session,
+                        targetWidth,
+                        "https://www.instagram.com/p/$shortcode/",
+                        shortcode
+                    )
+                } catch (apiFailure: Exception) {
+                    throw Exception(
+                        "Could not fetch this post.\n\n" +
+                            "Post page: ${postFailure.message ?: postFailure.javaClass.simpleName}\n" +
+                            "Logged-in API: ${apiFailure.message}"
+                    )
+                }
+            }
             throw Exception(
                 "Could not fetch this post. It may be private, age-restricted, or deleted. " +
-                "This build only downloads public content — use the login build for private posts and stories.\n\n" +
-                "Post page: ${postFailure.message ?: postFailure.javaClass.simpleName}"
+                    "Log in from Settings to download content visible to your account.\n\n" +
+                    "Post page: ${postFailure.message ?: postFailure.javaClass.simpleName}"
             )
+        }
+    }
+
+    private fun tryPublicStoryPage(story: StoryRequest, targetWidth: Int): List<MediaResult>? {
+        val storyUrl = "https://www.instagram.com/stories/${story.username}/${story.mediaId}/"
+        val response = client.newCall(
+            Request.Builder()
+                .url(storyUrl)
+                .header("User-Agent", "Googlebot/2.1 (+http://www.google.com/bot.html)")
+                .get().build()
+        ).execute()
+
+        val html = response.body?.string() ?: return null
+        if (!response.isSuccessful) return null
+
+        val mediaId = story.mediaId
+        return Regex("""<script\b[^>]*\bdata-sjs[^>]*>(\{.+?\})</script>""", RegexOption.DOT_MATCHES_ALL)
+            .findAll(html)
+            .mapNotNull { runCatching { JSONObject(it.groupValues[1]) }.getOrNull() }
+            .mapNotNull { findPublicProduct(it, mediaId) }
+            .map {
+                extractProductMedia(
+                    it,
+                    targetWidth,
+                    "${story.username}_story_${story.mediaId}",
+                    storyMeta(it, storyUrl)
+                )
+            }
+            .firstOrNull { it.isNotEmpty() }
+    }
+
+    private fun tryMediaInfoApi(
+        mediaId: String,
+        session: IgSession,
+        targetWidth: Int,
+        sourceUrl: String,
+        shortcode: String? = null
+    ): List<MediaResult> {
+        val cookie = listOfNotNull(
+            "sessionid=${session.sessionId}",
+            session.csrfToken?.let { "csrftoken=$it" },
+            session.userId?.let { "ds_user_id=$it" },
+        ).joinToString("; ")
+
+        val response = client.newCall(
+            Request.Builder()
+                .url("https://www.instagram.com/api/v1/media/$mediaId/info/")
+                .header("User-Agent", DESKTOP_UA)
+                .header("X-IG-App-ID", "936619743392459")
+                .header("Cookie", cookie)
+                .get().build()
+        ).execute()
+
+        val body = response.body?.string().orEmpty()
+        if (body.trimStart().startsWith('<')) {
+            throw Exception("Media info HTTP ${response.code}: session rejected — log in again")
+        }
+
+        val json = runCatching { JSONObject(body) }.getOrNull()
+            ?: throw Exception("Media info HTTP ${response.code}: bad JSON")
+        val item = json.optJSONArray("items")?.optJSONObject(0)
+            ?: throw Exception(
+                "Media info HTTP ${response.code}: " +
+                    json.optString("message").ifBlank { "no media returned" }
+            )
+
+        val baseName = shortcode?.let { postBaseName(item, it) }
+            ?: listOfNotNull(
+                postUsername(item),
+                "story",
+                mediaId
+            ).joinToString("_")
+        val meta = postMeta(item, sourceUrl)
+        return extractProductMedia(item, targetWidth, baseName, meta).ifEmpty {
+            throw Exception("Media info: no downloadable media")
         }
     }
 
@@ -106,7 +228,6 @@ object InstagramDownloader {
         val preview = images.pick(minOf(targetWidth, 640))?.optString("url")
             ?: item.optString("display_url").takeIf { it.isNotBlank() }
 
-        android.util.Log.d("IGDBG", "keys=" + item.keys().asSequence().joinToString() + " vid0=" + videos?.optJSONObject(0) + " img0=" + images?.optJSONObject(0))
         val video = videos.pick(targetWidth)
         val chosen = video ?: images.pick(targetWidth)
             ?: return preview?.let { MediaResult(it, isVideo = false, thumbnailUrl = it) }
@@ -170,7 +291,7 @@ object InstagramDownloader {
             .findAll(html)
             .mapNotNull { runCatching { JSONObject(it.groupValues[1]) }.getOrNull() }
             .mapNotNull { findPublicProduct(it, expectedMediaId) }
-            .map { extractProductMedia(it, targetWidth, postBaseName(it, shortcode), postMeta(it, shortcode)) }
+            .map { extractProductMedia(it, targetWidth, postBaseName(it, shortcode), postMeta(it, "https://www.instagram.com/p/$shortcode/")) }
             .firstOrNull { it.isNotEmpty() }
             ?.let { return it }
         throw Exception("Post HTTP ${response.code}: no public media found")
@@ -210,7 +331,7 @@ object InstagramDownloader {
             .joinToString("_")
     }
 
-    private fun postMeta(product: JSONObject, shortcode: String): PostMeta {
+    private fun postMeta(product: JSONObject, sourceUrl: String): PostMeta {
         val clips = product.optJSONObject("clips_metadata")
         val licensed = clips?.optJSONObject("music_info")?.optJSONObject("music_asset_info")
             ?.let { listOf(it.optString("display_artist"), it.optString("title")) }
@@ -219,11 +340,14 @@ object InstagramDownloader {
         return PostMeta(
             username = postUsername(product),
             caption = product.optJSONObject("caption")?.optString("text")?.takeIf { it.isNotBlank() },
-            url = "https://www.instagram.com/p/$shortcode/",
+            url = sourceUrl,
             song = (licensed ?: original)?.filter { it.isNotBlank() }?.joinToString(" - ")?.takeIf { it.isNotBlank() },
             takenAtSec = product.optLong("taken_at"),
         )
     }
+
+    private fun storyMeta(product: JSONObject, sourceUrl: String): PostMeta =
+        postMeta(product, sourceUrl)
 
     private fun extractProductMedia(product: JSONObject, targetWidth: Int, baseName: String, meta: PostMeta): List<MediaResult> {
         product.optJSONArray("carousel_media")?.let { carousel ->
@@ -236,14 +360,11 @@ object InstagramDownloader {
     }
 
     private fun shortcodeToMediaId(shortcode: String): String {
-        val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-        var id = 0L
-        for (character in shortcode) {
-            val digit = alphabet.indexOf(character)
+        return shortcode.fold(BigInteger.ZERO) { id, character ->
+            val digit = SHORTCODE_ALPHABET.indexOf(character)
             require(digit >= 0) { "Invalid Instagram shortcode" }
-            id = Math.addExact(Math.multiplyExact(id, 64L), digit.toLong())
-        }
-        return id.toString()
+            id * BigInteger.valueOf(64) + BigInteger.valueOf(digit.toLong())
+        }.toString()
     }
 
     private fun mediaRequest(url: String) = Request.Builder()
@@ -272,7 +393,12 @@ object InstagramDownloader {
 
     private fun extractShortcode(url: String): String? {
         val m = SHORTCODE_REGEX.matcher(url)
-        return if (m.find()) m.group(1)!!.take(11) else null
+        return if (m.find()) m.group(1) else null
+    }
+
+    private fun extractStory(url: String): StoryRequest? {
+        val m = STORY_REGEX.matcher(url)
+        return if (m.find()) StoryRequest(m.group(1)!!, m.group(2)!!) else null
     }
 
 }

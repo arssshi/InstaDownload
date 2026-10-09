@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">InstaDownload</string>
-    <string name="app_tagline">Save reels &amp; posts to your device</string>
+    <string name="app_tagline">Save posts, reels &amp; stories to your device</string>
     <string name="quick_download_label">Quick download</string>
     <string name="quick_download_channel_name">Quick downloads</string>
     <string name="quick_download_channel_description">Downloads started from the share menu</string>
@@ -30,11 +30,21 @@
     <string name="url_field_placeholder">https://www.instagram.com/reel/...</string>
     <string name="paste_clipboard_description">Paste from clipboard</string>
 
-    <string name="story_not_supported_title">Stories aren\'t supported</string>
-    <string name="story_not_supported_body">Instagram only serves Stories to logged-in accounts, so they can\'t be downloaded here. Reels and posts work as usual.</string>
+    <string name="story_download_title">Stories supported</string>
+    <string name="story_download_body">Public stories download without login. Log in only when a story is private or visible to your account.</string>
+    <string name="story_logged_in_body">You are logged in. This app can download stories and private posts visible to your account.</string>
+    <string name="login_for_private_button">Log in for private stories</string>
+    <string name="login_title">Log in with Instagram</string>
+    <string name="cancel">Cancel</string>
+    <string name="account_heading">Instagram account</string>
+    <string name="status_logged_in">Logged in</string>
+    <string name="status_logged_out">Not logged in</string>
+    <string name="log_in_button">Log in</string>
+    <string name="log_out_button">Log out</string>
+    <string name="login_required_note">Login is optional. Public posts, reels, and stories work without it.</string>
 
     <string name="error_empty_url">Please enter a URL</string>
-    <string name="error_invalid_url">Not a valid Instagram post or reel URL</string>
+    <string name="error_invalid_url">Not a valid Instagram post, reel, or story URL</string>
     <string name="error_generic">Something went wrong</string>
     <string name="error_download_failed">Download failed</string>
 

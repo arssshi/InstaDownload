@@ -52,6 +52,13 @@
 
         </activity>
 
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.InstaDownload"
+            android:label="@string/login_title"
+            android:windowSoftInputMode="adjustNothing" />
+
         <!-- Share target that queues a download without opening the main UI. -->
         <activity
             android:name=".QuickDownloadActivity"

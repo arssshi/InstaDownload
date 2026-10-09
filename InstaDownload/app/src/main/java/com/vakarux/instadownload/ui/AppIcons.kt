@@ -7,6 +7,13 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
 object AppIcons {
+    val Close: ImageVector by lazy {
+        materialIcon(
+            "Close",
+            "M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z"
+        )
+    }
+
     val ContentCopy: ImageVector by lazy {
         materialIcon(
             "ContentCopy",
@@ -33,6 +40,14 @@ object AppIcons {
             "Image",
             "M21,19V5c0,-1.1 -0.9,-2 -2,-2H5c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h14" +
                 "C20.1,21 21,20.1 21,19zM8.5,13.5l2.5,3.01L14.5,12l4.5,6H5L8.5,13.5z"
+        )
+    }
+
+    val Login: ImageVector by lazy {
+        materialIcon(
+            "Login",
+            "M11,7L9.6,8.4l2.6,2.6H2v2h10.2l-2.6,2.6L11,17l5,-5L11,7zM20,19h-8v2h8c1.1,0 2,-0.9 2,-2V5" +
+                "c0,-1.1 -0.9,-2 -2,-2h-8v2h8V19z"
         )
     }
 

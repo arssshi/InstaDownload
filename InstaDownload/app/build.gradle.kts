@@ -100,6 +100,7 @@ dependencies {
     // HTTP client for network requests
     implementation(libs.okhttp)
     debugImplementation(libs.logging.interceptor)
+    implementation(libs.androidx.security.crypto)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
